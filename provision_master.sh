@@ -26,39 +26,64 @@ rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
 yum -y install jenkins
 
 ########################
-# Nginx from EPEL
+# Nginx from EPEL, selinux-policy-devel
 ########################
-yum -y install nginx
+yum -y install nginx selinux-policy-devel
+
+if selinuxenabled ; then
+  # echo "** Do we need to disable SELinux?"
+  echo "Install custom Nginx SELinux policy"
+  # So we need to install custom SELinux policy 
+  # to allow Nginx to establish outgoing
+  # connection to Jenkins @ localhost:8080
+  cd /vagrant
+  checkmodule -M -m -o nginx.mod nginx.te
+  semodule_package -o nginx.pp -m nginx.mod
+  semodule -i nginx.pp
+fi
+
 systemctl enable nginx
-systemctl start nginx
 
 # it would be nice to generate SSL certificate there
 # however we're on the intranet...
 ########################
 # Configuring nginx
 ########################
-#echo "Configuring nginx"
+echo "Configuring Nginx"
 mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
 cd /etc/nginx/sites-available
+# debian/ubuntu specific: 
 test -e default && rm -f default ../sites-enabled/default
 cp /vagrant/jenkins-vhost.conf /etc/nginx/sites-available/jenkins
 ln -sf /etc/nginx/sites-available/jenkins /etc/nginx/sites-enabled/
+# disable default server {} section in the nginx.conf
+# and include definitions from sites-enabled/*
 sed -i -e '38,57 s/^/#/; 37 s#^$#    include /etc/nginx/sites-enabled/*;#' /etc/nginx/nginx.conf
-service nginx restart
+# service nginx restart
+systemctl start nginx
 service jenkins restart
 #echo "Success"
 
+
+########################
+# Python, Jenkins API
+########################
+yum -y install python-devel python-setuptools python2-pip
+pip install python-jenkins 
+
+########################
+# Configuring firewall
+########################
 echo "Configure firewall ..."
 if ! firewall-cmd --state ; then
   service firewalld start
 fi
+# in fact Nginx should handle request and act as a proxy in front of Jenkins
+# so we don't need to open port 8080 for public zone
 firewall-cmd --zone=public --add-port=8080/tcp --permanent
 firewall-cmd --zone=public --add-service=http --permanent
 firewall-cmd --reload
 
-if selinuxenabled ; then
-  echo "** Do we need to disable SELinux?"
-fi
 set +e
 echo -e "\n** IP-addresses on interfaces"
 for iface in eth0 eth1 ; do echo -n "$iface: "; ip a l $iface  |  awk '$1 == "inet" {print $2} ';done
