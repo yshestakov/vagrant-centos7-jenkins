@@ -24,7 +24,7 @@ Vagrant.configure("2") do |config|
   # LIBVIRT provider END
   
   # now, create VMs
-  vm_name = 'master'
+  vm_name = ENV['VM_NAME'] || 'master'
   config.vm.define vm_name do |domain|
     domain.vm.hostname = "jenkins-#{vm_name}.mtr.labs.mlnx"
     domain.vm.provider :libvirt do |libvirt|

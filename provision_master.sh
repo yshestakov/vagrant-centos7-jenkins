@@ -4,7 +4,7 @@ set -e
 # EPEL
 ########################
 echo "Install EPEL repo"
-yum install -y \
+yum -q install -y \
 	https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm  || true
 
 yum makecache
@@ -13,22 +13,22 @@ yum makecache
 # Java
 ########################
 echo "Install Java, wget"
-yum -y install java wget
+yum -q -y install java wget
 
 ########################
 # Jenkins
 ########################
 echo "Installing Jenkins"
 
-wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat/jenkins.repo
+wget -q -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat/jenkins.repo
 rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
 
-yum -y install jenkins
+yum -q -y install jenkins
 
 ########################
 # Nginx from EPEL, selinux-policy-devel
 ########################
-yum -y install nginx selinux-policy-devel
+yum -q -y install nginx selinux-policy-devel
 
 if selinuxenabled ; then
   # echo "** Do we need to disable SELinux?"
@@ -68,8 +68,9 @@ service jenkins restart
 ########################
 # Python, Jenkins API
 ########################
-yum -y install python-devel python-setuptools python2-pip
-pip install python-jenkins 
+yum -q -y install python-devel python-setuptools python2-pip
+pip install python-jenkins
+pip install jenkinsapi
 
 ########################
 # Configuring firewall
@@ -88,5 +89,21 @@ set +e
 echo -e "\n** IP-addresses on interfaces"
 for iface in eth0 eth1 ; do echo -n "$iface: "; ip a l $iface  |  awk '$1 == "inet" {print $2} ';done
 
-echo -en "\n** Jenkins admin password: "
-cat /var/lib/jenkins/secrets/initialAdminPassword
+########################
+# Get Jenkins CLI
+########################
+sleep 3
+wget -q -O /usr/local/lib/jenkins-cli.jar http://localhost:8080/jnlpJars/jenkins-cli.jar
+cat <<EOF >/usr/local/bin/jcli
+#!/bin/bash
+JAR=/usr/local/lib/jenkins-cli.jar
+URL=\${JENKINS_URL:-http://localhost:8080}
+java -jar \$JAR -s \$URL -auth @/home/vagrant/.jcli.cred \$@
+EOF
+chmod +x /usr/local/bin/jcli
+read token < /var/lib/jenkins/secrets/initialAdminPassword
+echo "admin:$token" >/home/vagrant/.jcli.cred
+chmod 600 /home/vagrant/.jcli.cred
+chown vagrant /home/vagrant/.jcli.cred
+
+echo -en "\n** Default Jenkins admin password: $token"
