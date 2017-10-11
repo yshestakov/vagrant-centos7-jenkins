@@ -7,7 +7,7 @@ Vagrant.configure("2") do |config|
   config.vm.box = "centos/7"
   config.vm.box_check_update = false
 
-  # public network:
+  # public network. FIXME: hardcoded bridge name: br0
   config.vm.network :public_network, :dev => "br0", :mode => "bridge", :type => "bridge"
 
   # LIBVIRT provider BEGIN
@@ -25,12 +25,13 @@ Vagrant.configure("2") do |config|
   # LIBVIRT provider END
   
   # now, create VMs
-  vm_name = ENV['VM_NAME'] || 'master'
+  vm_name = ENV['VM_NAME'] || (Dir.getwd.split('/')[-1] == 'builder' ? 'builder0' : 'master')
   config.vm.define vm_name do |domain|
     domain.vm.hostname = "jenkins-#{vm_name}"
     domain.vm.provider :libvirt do |libvirt|
     end
     domain.vm.network "forwarded_port", guest: 80, host: 8080
-    domain.vm.provision "shell", :path => "provision_master.sh", :privileged => true
+    script = (vm_name == 'master') ? "provision_master.sh" : "provision_builder.sh"
+    domain.vm.provision "shell", :path => script, :privileged => true
   end  # end of :master domain
 end

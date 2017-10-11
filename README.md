@@ -1,6 +1,7 @@
 # Vagrant Jenkins build
 
-Run a Jenkins 2.25 (unstable) instance on Centos/7.3 using vagrant and libvirt with qemu/kvm.
+Run a Jenkins 2.83 (unstable) instance on CentOS/7.4.1708 using vagrant and libvirt with QEMU/KVM as hypervisor.
+QEMU `qemu-system-x86-2.0.0` package from EPEL has `nvme` device emulation.
 
 ## Prerequisites
 * [VirtualBox](https://www.virtualbox.org/)
